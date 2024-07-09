@@ -51,16 +51,11 @@ func (h *Handler) CreateAccount(c echo.Context) error {
 }
 
 func (h *Handler) GetAccount(c echo.Context) error {
-	var request dto.GetAccountRequest
-	if err := c.Bind(&request); err != nil {
-		c.Logger().Error(err)
-
-		return c.String(http.StatusBadRequest, "invalid request")
-	}
+	name := c.QueryParams().Get("name")
 
 	h.guard.RLock()
 
-	account, ok := h.accounts[request.Name]
+	account, ok := h.accounts[name]
 
 	h.guard.RUnlock()
 

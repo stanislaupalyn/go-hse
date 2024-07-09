@@ -29,19 +29,3 @@ func main() {
 	// Start server
 	e.Logger.Fatal(e.Start(":1323"))
 }
-
-/*
-curl --header "Content-Type: application/json" --request POST --data '{"name":"alice","amount": 20}' 127.0.0.1:1323/account/create
-curl --header "Content-Type: application/json" --request GET --data '{"name":"alice"}' 127.0.0.1:1323/account
-
-curl --header "Content-Type: application/json" --request PATCH --data '{"name":"alice","new-name":"bob"}' 127.0.0.1:1323/account/change-name
-
-curl --header "Content-Type: application/json" --request GET --data '{"name":"alice"}' 127.0.0.1:1323/account
-curl --header "Content-Type: application/json" --request GET --data '{"name":"bob"}' 127.0.0.1:1323/account
-
-curl --header "Content-Type: application/json" --request PATCH --data '{"name":"bob","new-amount":228}' 127.0.0.1:1323/account/change-amount
-curl --header "Content-Type: application/json" --request GET --data '{"name":"bob"}' 127.0.0.1:1323/account
-
-curl --header "Content-Type: application/json" --request DELETE --data '{"name":"bob"}' 127.0.0.1:1323/account/delete
-curl --header "Content-Type: application/json" --request GET --data '{"name":"bob"}' 127.0.0.1:1323/account
-*/
