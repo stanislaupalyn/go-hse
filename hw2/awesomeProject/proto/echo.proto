@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+option go_package = "awesomeProject/proto";
+
+import "google/protobuf/empty.proto";
+
+package proto;
+
+service Handler {
+  rpc CreateAccount (CreateAccountRequest) returns (google.protobuf.Empty);
+  rpc GetAccount (GetAccountRequest) returns (GetAccountResponse);
+  rpc DeleteAccount (DeleteAccountRequest) returns (google.protobuf.Empty);
+  rpc ChangeAccountAmount (ChangeAmountRequest) returns (google.protobuf.Empty);
+  rpc ChangeAccountName (ChangeNameRequest) returns (google.protobuf.Empty);
+}
+
+message GetAccountResponse {
+  string Name = 1;
+  int32 Amount = 2;
+}
+
+message CreateAccountRequest {
+  string Name = 1;
+  int32 Amount = 2;
+}
+
+message ChangeNameRequest {
+  string Name = 1;
+  string NewName = 2;
+}
+
+message GetAccountRequest {
+  string Name = 1;
+}
+
+message ChangeAmountRequest {
+  string Name = 1;
+  int32 NewAmount = 2;
+}
+
+message DeleteAccountRequest {
+  string Name = 1;
+}
