@@ -4,7 +4,9 @@ import (
 	"awesomeProject/accounts/models"
 	"awesomeProject/proto"
 	"context"
+	"database/sql"
 	"fmt"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"net"
@@ -16,6 +18,7 @@ type Server struct {
 
 	accounts map[string]*models.Account
 	guard    *sync.RWMutex
+	db       *sql.DB
 }
 
 func New() *Server {
@@ -35,7 +38,12 @@ func (s *Server) CreateAccount(ctx context.Context, req *proto.CreateAccountRequ
 	if _, ok := s.accounts[req.Name]; ok {
 		s.guard.Unlock()
 
-		return &emptypb.Empty{}, fmt.Errorf("account already exists")
+		return nil, fmt.Errorf("account already exists")
+	}
+
+	_, err := s.db.ExecContext(ctx, "INSERT INTO accounts(name, balance) VALUES($1, $2)", req.Name, req.Amount)
+	if err != nil {
+		return nil, fmt.Errorf("error while inserting into db")
 	}
 
 	s.accounts[req.Name] = &models.Account{
@@ -75,6 +83,11 @@ func (s *Server) DeleteAccount(ctx context.Context, req *proto.DeleteAccountRequ
 		return nil, fmt.Errorf("account doesn't exist")
 	}
 
+	_, err := s.db.ExecContext(ctx, "DELETE FROM accounts WHERE name=$1", req.Name)
+	if err != nil {
+		return nil, fmt.Errorf("error while deleting from db")
+	}
+
 	delete(s.accounts, req.Name)
 
 	s.guard.Unlock()
@@ -88,6 +101,11 @@ func (s *Server) ChangeAccountAmount(ctx context.Context, req *proto.ChangeAmoun
 		s.guard.Unlock()
 
 		return nil, fmt.Errorf("account doesn't exist")
+	}
+
+	_, err := s.db.ExecContext(ctx, "UPDATE accounts SET balance=$1 WHERE name=$2", req.NewAmount, req.Name)
+	if err != nil {
+		return nil, fmt.Errorf("error while changing account amount in db")
 	}
 
 	s.accounts[req.Name].Amount = int(req.NewAmount)
@@ -116,17 +134,61 @@ func (s *Server) ChangeAccountName(ctx context.Context, req *proto.ChangeNameReq
 	s.accounts[req.NewName] = account
 	delete(s.accounts, req.Name)
 
+	_, err := s.db.ExecContext(ctx, "UPDATE accounts SET name=$1 WHERE name=$2", req.NewName, req.Name)
+	if err != nil {
+		return nil, fmt.Errorf("error while changing account name in db")
+	}
+
 	s.guard.Unlock()
 	return &emptypb.Empty{}, nil
 }
 
 func main() {
+	connectionString := "host=localhost port=5432 dbname=postgres user=postgres password=mysecretpassword"
+	db, err := sql.Open("pgx", connectionString)
+	if err != nil {
+		panic(err)
+	}
+
+	defer db.Close()
+
+	if err := db.Ping(); err != nil {
+		panic(err)
+	}
+
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 4567))
 	if err != nil {
 		panic(err)
 	}
 	s := grpc.NewServer()
-	proto.RegisterHandlerServer(s, New())
+
+	myServer := New()
+	myServer.db = db
+	proto.RegisterHandlerServer(s, myServer)
+
+	ctx := context.Background()
+	rows, err := db.QueryContext(ctx, "SELECT name, balance FROM accounts")
+	if err != nil {
+		panic(err)
+	}
+
+	defer func() {
+		_ = rows.Close()
+	}()
+
+	for rows.Next() {
+		var account models.Account
+		if err := rows.Scan(&account.Name, &account.Amount); err != nil {
+			panic(err)
+		}
+
+		myServer.accounts[account.Name] = &account
+	}
+
+	if err := rows.Err(); err != nil {
+		panic(err)
+	}
+
 	if err := s.Serve(lis); err != nil {
 		panic(err)
 	}
